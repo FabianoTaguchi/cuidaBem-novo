@@ -1070,6 +1070,84 @@ def delete_alert(alert_id):
     return redirect(url_for("alerts"))
 
 
+@app.route("/alerts_dashboard")
+def alerts_dashboard():
+    if "user_id" not in session:
+        flash("Faça login para acessar.", "error")
+        return redirect(url_for("index"))
+
+    user_id = session["user_id"]
+
+    conn = get_db_connection()
+    alerts_rows = conn.execute(
+        "SELECT id, alert_type, alert_time, days, alert_date, created_at FROM alerts WHERE user_id = ? ORDER BY alert_time ASC",
+        (user_id,),
+    ).fetchall()
+
+    # Contagem por tipo de alerta
+    type_counts = {slug: 0 for slug, _ in ALERT_TYPES}
+    # Contagem por dia da semana
+    day_counts = {slug: 0 for slug, _ in DAYS_OF_WEEK}
+
+    recurring_count = 0
+    date_count = 0
+
+    for row in alerts_rows:
+        atype = row["alert_type"]
+        if atype in type_counts:
+            type_counts[atype] += 1
+        if row["alert_date"]:
+            date_count += 1
+        elif row["days"]:
+            recurring_count += 1
+            for d in row["days"].split(","):
+                d = d.strip()
+                if d in day_counts:
+                    day_counts[d] += 1
+
+    conn.close()
+
+    total_alerts = len(alerts_rows)
+    type_labels_order = [label for slug, label in ALERT_TYPES]
+    type_slugs_order = [slug for slug, _ in ALERT_TYPES]
+    counts_per_type = [type_counts[slug] for slug in type_slugs_order]
+
+    day_labels_order = [label for slug, label in DAYS_OF_WEEK]
+    day_slugs_order = [slug for slug, _ in DAYS_OF_WEEK]
+    counts_per_day = [day_counts[slug] for slug in day_slugs_order]
+
+    # Tipo mais frequente
+    top_idx = counts_per_type.index(max(counts_per_type)) if counts_per_type else None
+    top_type_label = type_labels_order[top_idx] if (top_idx is not None and max(counts_per_type) > 0) else None
+
+    # Lista formatada dos alertas
+    formatted_alerts = []
+    for row in alerts_rows:
+        days_list = row["days"].split(",") if row["days"] else []
+        days_labels = [DAY_LABELS.get(d, d) for d in days_list]
+        formatted_alerts.append({
+            "id": row["id"],
+            "type_label": ALERT_TYPE_LABELS.get(row["alert_type"], row["alert_type"]),
+            "alert_time": row["alert_time"],
+            "days_labels": days_labels,
+            "alert_date": row["alert_date"],
+        })
+
+    return render_template(
+        "alerts_dashboard.html",
+        name=session.get("user_name"),
+        total_alerts=total_alerts,
+        recurring_count=recurring_count,
+        date_count=date_count,
+        top_type_label=top_type_label,
+        type_labels=type_labels_order,
+        counts_per_type=counts_per_type,
+        day_labels=day_labels_order,
+        counts_per_day=counts_per_day,
+        alerts=formatted_alerts,
+    )
+
+
 @app.route("/alerts/data")
 def alerts_data():
     if "user_id" not in session:
