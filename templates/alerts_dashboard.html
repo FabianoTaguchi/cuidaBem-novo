@@ -2,60 +2,14 @@
 
 {% block content %}
   <section class="card">
-    <h2>Painel de alertas{% if name %}, {{ name }}{% endif %}</h2>
-    <p class="muted">Resumo dos seus alertas e lembretes configurados.</p>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem;">
-      <div class="card" style="padding:1rem;">
-        <div class="muted">Total de alertas</div>
-        <div style="font-size:1.5rem;">{{ total_alerts }}</div>
-      </div>
-      <div class="card" style="padding:1rem;">
-        <div class="muted">Recorrentes (dias)</div>
-        <div style="font-size:1.5rem;">{{ recurring_count }}</div>
-      </div>
-      <div class="card" style="padding:1rem;">
-        <div class="muted">Data específica</div>
-        <div style="font-size:1.5rem;">{{ date_count }}</div>
-      </div>
-      <div class="card" style="padding:1rem;">
-        <div class="muted">Tipo mais frequente</div>
-        <div style="font-size:1.5rem;">{{ top_type_label or '—' }}</div>
-      </div>
-    </div>
-  </section>
+    <h2>Alertas agendados{% if name %}, {{ name }}{% endif %}</h2>
+    <p class="muted">Horários dos seus alertas e lembretes configurados.</p>
 
-  <section class="card" style="margin-top:1rem;">
-    <h3>Distribuição por tipo de alerta</h3>
-    {% if counts_per_type and counts_per_type|sum > 0 %}
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem;">
-        <div>
-          <canvas id="chartTypes" height="140"></canvas>
-        </div>
-        <div>
-          <canvas id="chartDays" height="140"></canvas>
-        </div>
-      </div>
-    {% else %}
-      <p class="muted">Nenhum alerta configurado. <a href="{{ url_for('alerts') }}">Criar alerta</a>.</p>
-    {% endif %}
-  </section>
-
-  <section class="card" style="margin-top:1rem;">
-    <h3>Alertas por dia da semana</h3>
-    {% if counts_per_day and counts_per_day|sum > 0 %}
-      <canvas id="chartWeekdays" height="120"></canvas>
-    {% else %}
-      <p class="muted">Sem alertas recorrentes por dia da semana.</p>
-    {% endif %}
-  </section>
-
-  <section class="card" style="margin-top:1rem;">
-    <h3>Lista de alertas configurados</h3>
     {% if alerts and alerts|length > 0 %}
       <div style="display:grid; gap:.5rem;">
         {% for a in alerts %}
           <div style="display:flex; align-items:center; gap:1rem; padding:.75rem; border:1px solid #e5e7eb; border-radius:.5rem;">
-            <div style="width:48px; height:48px; background:#fee2e2; color:#dc2626; border-radius:.5rem; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">
+            <div style="min-width:64px; height:48px; background:#fee2e2; color:#dc2626; border-radius:.5rem; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex-shrink:0;">
               {{ a.alert_time }}
             </div>
             <div style="flex:1;">
@@ -77,58 +31,9 @@
     {% else %}
       <p class="muted">Nenhum alerta cadastrado.</p>
     {% endif %}
+
     <div style="margin-top:1rem;">
       <a href="{{ url_for('alerts') }}" class="btn primary">Gerenciar alertas</a>
     </div>
   </section>
-
-  {% if counts_per_type and counts_per_type|sum > 0 %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const typeLabels = {{ type_labels|tojson }};
-    const countsType = {{ counts_per_type|tojson }};
-    const dayLabels = {{ day_labels|tojson }};
-    const countsDay = {{ counts_per_day|tojson }};
-
-    const mutedColor = '#000000';
-    const accent = '#ef4444';
-    const accent2 = '#f87171';
-
-    function makeBarChart(ctx, labels, data, label, color) {
-      return new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label,
-            data,
-            backgroundColor: color,
-            borderColor: color,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#000000' } } },
-          scales: {
-            x: { ticks: { color: mutedColor } },
-            y: { ticks: { color: mutedColor }, beginAtZero: true }
-          }
-        }
-      });
-    }
-
-    if (typeLabels && typeLabels.length && countsType.reduce(function(a,b){return a+b;},0) > 0) {
-      const ctxTypes = document.getElementById('chartTypes').getContext('2d');
-      makeBarChart(ctxTypes, typeLabels, countsType, 'Quantidade', accent);
-    }
-    if (dayLabels && dayLabels.length && countsDay.reduce(function(a,b){return a+b;},0) > 0) {
-      const ctxDays = document.getElementById('chartDays').getContext('2d');
-      makeBarChart(ctxDays, dayLabels, countsDay, 'Quantidade', accent2);
-    }
-    const ctxWeekdaysEl = document.getElementById('chartWeekdays');
-    if (ctxWeekdaysEl && countsDay.reduce(function(a,b){return a+b;},0) > 0) {
-      makeBarChart(ctxWeekdaysEl.getContext('2d'), dayLabels, countsDay, 'Alertas por dia', accent);
-    }
-  </script>
-  {% endif %}
 {% endblock %}
