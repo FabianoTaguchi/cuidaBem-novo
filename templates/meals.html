@@ -49,11 +49,7 @@
         <label for="description">Alimentação</label>
         <textarea id="description" name="description" rows="3" placeholder="Descreva o que foi consumido...">{{ description_prev or '' }}</textarea>
       </div>
-      <div class="form-group">
-        <label for="photo">Foto (opcional)</label>
-        <input type="file" id="photo" name="photo" accept="image/*" capture="environment">
-        <small class="muted">PNG, JPG, JPEG, GIF ou WEBP (máx. 16MB)</small>
-      </div>
+      <input type="file" id="photo" name="photo" accept="image/*" style="display:none;">
       <button type="submit" class="btn primary">Registrar</button>
     </form>
   </section>
@@ -114,6 +110,14 @@
         photoInput.addEventListener('change', function(e) {
           var file = e.target.files[0];
           if (!file) return;
+
+          // Anexa a foto ao input oculto do formulário para ser salva no registro
+          var formPhotoInput = document.getElementById('photo');
+          if (formPhotoInput) {
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            formPhotoInput.files = dt.files;
+          }
 
           var reader = new FileReader();
           reader.onload = function(ev) {
