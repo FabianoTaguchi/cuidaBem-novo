@@ -1520,6 +1520,82 @@ def meals():
     )
 
 
+@app.route("/meals_dashboard")
+def meals_dashboard():
+    if "user_id" not in session:
+        flash("Faça login para acessar.", "error")
+        return redirect(url_for("index"))
+
+    user_id = session["user_id"]
+    month_key = request.args.get("month") or datetime.now().strftime("%Y-%m")
+
+    conn = get_db_connection()
+    # Resumo por tipo de refeição no mês
+    summary_rows = conn.execute(
+        """
+        SELECT meal_type, COUNT(*) AS count
+        FROM meals
+        WHERE user_id = ? AND strftime('%Y-%m', meal_at) = ?
+        GROUP BY meal_type
+        """,
+        (user_id, month_key),
+    ).fetchall()
+
+    # Evolução diária de refeições no mês
+    daily_rows = conn.execute(
+        """
+        SELECT date(meal_at) AS day, COUNT(*) AS total
+        FROM meals
+        WHERE user_id = ? AND strftime('%Y-%m', meal_at) = ?
+        GROUP BY day
+        ORDER BY day ASC
+        """,
+        (user_id, month_key),
+    ).fetchall()
+
+    # Total de refeições e dias com registro (para médias)
+    totals_row = conn.execute(
+        """
+        SELECT COUNT(*) AS total, COUNT(DISTINCT date(meal_at)) AS days
+        FROM meals
+        WHERE user_id = ? AND strftime('%Y-%m', meal_at) = ?
+        """,
+        (user_id, month_key),
+    ).fetchone()
+    conn.close()
+
+    # Mapear por tipo de refeição seguindo a ordem padrão
+    summary_map = {row["meal_type"]: row["count"] for row in summary_rows}
+    meal_labels_order = [label for slug, label in MEAL_TYPES]
+    meal_slugs_order = [slug for slug, _ in MEAL_TYPES]
+    counts_per_meal_type = [int(summary_map.get(slug, 0) or 0) for slug in meal_slugs_order]
+
+    # Totais e tipo de refeição mais frequente
+    total_meals = totals_row["total"] if totals_row else 0
+    days_registered = totals_row["days"] if totals_row else 0
+    avg_per_day = (total_meals / days_registered) if days_registered > 0 else 0
+    top_idx = counts_per_meal_type.index(max(counts_per_meal_type)) if counts_per_meal_type else None
+    top_meal_type_label = meal_labels_order[top_idx] if (top_idx is not None and max(counts_per_meal_type) > 0) else None
+
+    # Evolução diária
+    labels_days = [row["day"] for row in daily_rows]
+    meals_daily = [int(row["total"]) for row in daily_rows]
+
+    return render_template(
+        "meals_dashboard.html",
+        name=session.get("user_name"),
+        month_key=month_key,
+        meal_labels=meal_labels_order,
+        counts_per_meal_type=counts_per_meal_type,
+        labels_days=labels_days,
+        meals_daily=meals_daily,
+        total_meals=total_meals,
+        days_registered=days_registered,
+        avg_per_day=avg_per_day,
+        top_meal_type_label=top_meal_type_label,
+    )
+
+
 @app.route("/meals/analyze-photo", methods=["POST"])
 def analyze_meal_photo():
     if "user_id" not in session and not session.get("is_admin"):

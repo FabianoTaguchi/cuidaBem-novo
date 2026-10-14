@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <h2>Painel de alimentação{% if name %}, {{ name }}{% endif %}</h2>
+    <p class="muted">Análise mensal das suas refeições registradas.</p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem;">
+      <div class="card" style="padding:1rem;">
+        <div class="muted">Total de refeições</div>
+        <div style="font-size:1.5rem;">{{ total_meals }}</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div class="muted">Dias com registro</div>
+        <div style="font-size:1.5rem;">{{ days_registered }}</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div class="muted">Média por dia</div>
+        <div style="font-size:1.5rem;">{{ '%.1f'|format(avg_per_day) }}</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div class="muted">Refeição mais frequente</div>
+        <div style="font-size:1.5rem;">{{ top_meal_type_label or '—' }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:1rem;">
+    <h3>Distribuição por tipo de refeição ({{ month_key }})</h3>
+    {% if meal_labels and counts_per_meal_type and counts_per_meal_type|sum > 0 %}
+      <canvas id="chartMealTypes" height="140"></canvas>
+    {% else %}
+      <p class="muted">Sem dados para o mês selecionado. <a href="{{ url_for('meals') }}">Registrar refeição</a>.</p>
+    {% endif %}
+  </section>
+
+  <section class="card" style="margin-top:1rem;">
+    <h3>Evolução diária de refeições ({{ month_key }})</h3>
+    {% if labels_days and labels_days|length > 0 %}
+      <canvas id="chartDaily" height="120"></canvas>
+    {% else %}
+      <p class="muted">Ainda não há refeições registradas neste mês. <a href="{{ url_for('meals') }}">Registrar agora</a>.</p>
+    {% endif %}
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const mealLabels = {{ meal_labels|tojson }};
+    const countsData = {{ counts_per_meal_type|tojson }};
+    const dailyLabels = {{ labels_days|tojson }};
+    const dailyData = {{ meals_daily|tojson }};
+
+    const mutedColor = '#000000';
+    const accent = '#f97316';
+    const accent2 = '#fb923c';
+
+    function makeBarChart(ctx, labels, data, label, color) {
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data,
+            backgroundColor: color,
+            borderColor: color,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#000000' } } },
+          scales: {
+            x: { ticks: { color: mutedColor } },
+            y: { ticks: { color: mutedColor }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function makeLineChart(ctx, labels, data, label, color) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data,
+            borderColor: color,
+            backgroundColor: 'rgba(249, 115, 22, 0.2)',
+            tension: 0.25,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#000000' } } },
+          scales: {
+            x: { ticks: { color: mutedColor } },
+            y: { ticks: { color: mutedColor }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    if (mealLabels && mealLabels.length && countsData.reduce(function(a,b){return a+b;},0) > 0) {
+      const ctxMealTypes = document.getElementById('chartMealTypes').getContext('2d');
+      makeBarChart(ctxMealTypes, mealLabels, countsData, 'Quantidade', accent);
+    }
+    if (dailyLabels && dailyLabels.length) {
+      const ctxDaily = document.getElementById('chartDaily').getContext('2d');
+      makeLineChart(ctxDaily, dailyLabels, dailyData, 'Refeições por dia', accent2);
+    }
+  </script>
+{% endblock %}
